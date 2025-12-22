@@ -3,7 +3,9 @@ import numpy as np
 from sqlalchemy import create_engine
 import time
 import xlsxwriter
-
+from datetime import datetime
+import os
+os.chdir('G:/PerfInfo/Performance Management/OR Team/Emily Projects/General Analysis/Cancer Wait List Analysis')
 t0=time.time()
 ################################################################################
                     #####Data Read and Pre-Process#####
@@ -13,40 +15,80 @@ sdmart_engine = create_engine('mssql+pyodbc://@SDMartDataLive2/InfoDB?'\
                                '+for+SQL+Server')
 
 ####Waitlist Additions
-add_sql = """ SELECT [WkEnd_Added] AS [Week End]
-		  ,[Specialty] AS [Specialty Code]
-          ,[Clinic Code] AS [Clinic Code]
-		  ,[Priority]
-		  ,[New/Follow-Up] AS [New/Follow Up]
-		  ,SUM([W/List Additions]) AS [Waitlist Additions]
-		  FROM [SDMartDataLive2].[infodb].[PowerBI].[RL_PBI0043_WL_Adds]
-		  WHERE WkEnd_Added < GETDATE()
-		  GROUP BY [WkEnd_Added], [Specialty], [Clinic Code], [Priority], [New/Follow-Up]"""
+add_sql = """WITH ADDNS AS (
+	        SELECT [WkEnd_Added] AS [Week End]
+		    ,[Specialty] AS [Specialty Code]
+            ,[Clinic Code] AS [Clinic Code]
+		    ,CASE WHEN [Priority] LIKE '2%' THEN 'Suspected Cancer'
+		    WHEN [Priority] LIKE 'R%' THEN 'Routine'
+		    WHEN [Priority] ='1' THEN 'Routine'
+		    WHEN [Priority] LIKE 'S%' THEN 'Routine'
+		    WHEN [Priority] = 'TBA' THEN 'Routine'
+		    WHEN [Priority] = 'NSP' THEN 'Routine'
+		    WHEN [Priority] IS NULL THEN 'Routine'
+		    WHEN [Priority] LIKE 'U%' THEN 'Urgent'
+		    WHEN [Priority] = 'TC' THEN 'Time Critical' END AS [Priority]
+		    ,[New/Follow-Up] AS [New/Follow Up]
+		    ,[W/List Additions] AS [Waitlist Additions]
+		    FROM [infodb].[PowerBI].[RL_PBI0043_WL_Adds]
+		    WHERE WkEnd_Added < GETDATE())
+
+            SELECT [Week End], [Specialty Code], [Clinic Code], [Priority], [New/Follow Up],
+                SUM([Waitlist Additions]) AS [Waitlist Additions]
+            FROM ADDNS
+            GROUP BY [Week End], [Specialty Code], [Clinic Code], [Priority], [New/Follow Up]"""
 add = pd.read_sql(add_sql, sdmart_engine)
 
 ####Waitlist Attendances
-att_sql = """SELECT [Session Week] as [Week End]
-				 ,[Specialty] AS [Specialty Code] 
-                 ,[clinic_code] AS [Clinic Code]
-				 ,[prity_perf] as [Priority]
-				 ,CASE WHEN [visit_desc] = 'FU' THEN 'Follow Up' else [visit_desc] END AS [New/Follow Up]   			 
-				 ,SUM([Attended]) AS [Attendances]
-				 FROM [infodb].[PowerBI].[RL_PBI0043_Activity]
-				 WHERE rundate = (select MAX(rundate) from [infodb].[PowerBI].[RL_PBI0043_Activity]) AND [Session Week] < GETDATE()
-				 GROUP BY [Session Week], [Specialty], [clinic_code], [prity_perf], [visit_desc]"""
+att_sql = """WITH ATT AS (
+            SELECT [Session Week] as [Week End]
+			,[Specialty] AS [Specialty Code] 
+            ,[clinic_code] AS [Clinic Code]
+			,CASE WHEN [prity_perf] LIKE '2%' THEN 'Suspected Cancer'
+		    WHEN [prity_perf] LIKE 'R%' THEN 'Routine'
+		    WHEN [prity_perf] ='1' THEN 'Routine'
+		    WHEN [prity_perf] LIKE 'S%' THEN 'Routine'
+		    WHEN [prity_perf] = 'TBA' THEN 'Routine'
+		    WHEN [prity_perf] = 'NSP' THEN 'Routine'
+		    WHEN [prity_perf] IS NULL THEN 'Routine'
+		    WHEN [prity_perf] LIKE 'U%' THEN 'Urgent'
+		    WHEN [prity_perf] = 'TC' THEN 'Time Critical' END AS [Priority]
+			,CASE WHEN [visit_desc] = 'FU' THEN 'Follow Up' else [visit_desc] END AS [New/Follow Up]   			 
+			,[Attended] AS [Attendances]
+			FROM [infodb].[PowerBI].[RL_PBI0043_Activity]
+			WHERE rundate = (select MAX(rundate) from [infodb].[PowerBI].[RL_PBI0043_Activity])
+                  AND [Session Week] < GETDATE())
+
+            SELECT [Week End], [Specialty Code], [Clinic Code], [Priority], [New/Follow Up],
+                   SUM([Attendances]) AS [Attendances]
+            FROM ATT
+            GROUP BY [Week End], [Specialty Code], [Clinic Code], [Priority], [New/Follow Up]"""
 att = pd.read_sql(att_sql, sdmart_engine)
 
 ####Historical Waitlist Size
-wl_sql = """SELECT CONVERT(DATE, [Session Week]) AS [Week End]
-				,[Specialty] AS [Specialty Code]
-                ,[clinic_code] AS [Clinic Code]       
-				,[Priority]        
-				,[New/Follow Up]
-				,SUM([Waitlist Size]) AS [Waitlist Size]
-				FROM [infodb].[PowerBI].[RL_PBI0043_WL_Past]
-				WHERE  [Session Week] <  GETDATE()
-				GROUP BY [Session Week], [Specialty], [clinic_code], [Priority], [New/Follow Up]
-"""
+wl_sql = """WITH WL AS (
+            SELECT CONVERT(DATE, [Session Week]) AS [Week End]
+			,[Specialty] AS [Specialty Code]
+            ,[clinic_code] AS [Clinic Code]       
+			,CASE WHEN [Priority] LIKE '2%' THEN 'Suspected Cancer'
+		    WHEN [Priority] LIKE 'R%' THEN 'Routine'
+		    WHEN [Priority] ='1' THEN 'Routine'
+		    WHEN [Priority] LIKE 'S%' THEN 'Routine'
+		    WHEN [Priority] = 'TBA' THEN 'Routine'
+		    WHEN [Priority] = 'NSP' THEN 'Routine'
+		    WHEN [Priority] IS NULL THEN 'Routine'
+		    WHEN [Priority] LIKE 'U%' THEN 'Urgent'
+		    WHEN [Priority] = 'TC' THEN 'Time Critical' END AS [Priority]
+			,[New/Follow Up]
+			,[Waitlist Size]
+			FROM [infodb].[PowerBI].[RL_PBI0043_WL_Past]
+			WHERE  [Session Week] <  GETDATE())
+
+            SELECT [Week End], [Specialty Code], [Clinic Code], [Priority], [New/Follow Up],
+                SUM([Waitlist Size]) AS [Waitlist Size]
+            FROM WL
+            GROUP BY [Week End], [Specialty Code], [Clinic Code], [Priority], [New/Follow Up]"""
+
 wl = pd.read_sql(wl_sql, sdmart_engine)
 wl['Week End'] = wl['Week End'].astype('datetime64[ns]')
 wl['Specialty Code'] = wl['Specialty Code'].str.strip()
@@ -96,11 +138,18 @@ LEFT JOIN PiMSMarts.dbo.[MasterClinicList] AS mastc
 
 WHERE
 --Filter to slots over next 3 weeks
-(YEAR(util.[session_start_dttm]) * 100 + DATEPART(WEEK, util.[session_start_dttm])) 
-BETWEEN 
-  (YEAR(GETDATE()) * 100 + DATEPART(WEEK, GETDATE())) --Start of current week
-   AND
-  (YEAR(DATEADD(WEEK, 3, GETDATE())) * 100 + DATEPART(WEEK, DATEADD(WEEK, 2, GETDATE()))) --End of 3 weeks time
+CONVERT(DATE, util.[session_start_dttm])
+    > DATEADD(DAY, 7 - (@@DATEFIRST-1) - DATEPART(WEEKDAY, CONVERT(DATE, GETDATE())),
+              CONVERT(DATE, GETDATE())) --After this sunday
+AND CONVERT(DATE, util.[session_start_dttm])
+    <= DATEADD(WEEK, 3, DATEADD(DAY, 7 - (@@DATEFIRST-1) - DATEPART(WEEKDAY, CONVERT(DATE, GETDATE())),
+               CONVERT(DATE, GETDATE()))) --Before sunday in 3 weeks (check time)
+
+--(YEAR(util.[session_start_dttm]) * 100 + DATEPART(WEEK, util.[session_start_dttm])) 
+--BETWEEN 
+--  (YEAR(GETDATE()) * 100 + DATEPART(WEEK, GETDATE())) --Start of current week
+--   AND
+--  (YEAR(DATEADD(WEEK, 3, GETDATE())) * 100 + DATEPART(WEEK, DATEADD(WEEK, 2, GETDATE()))) --End of 3 weeks time
 --Other filterings
 AND util.[session_cancr_dttm] IS NULL -- Restrict to held sessions only
 AND util.[template_flag] ='N' --not templates
@@ -119,6 +168,8 @@ cancer_slots = pd.read_sql_query(cancer_slots_sql, sdmart_engine)
 cancer_slots['Week End'] = cancer_slots['Week End'].astype(str)
 cancer_wl['Priority'] = cancer_wl['Priority'].str.strip()
 cancer_wl['Past/Future'] = 'Past'
+
+#Group up priorities
 
 #List of forecast weeks
 fut_weeks = (cancer_slots['Week End'].drop_duplicates().sort_values()
@@ -302,6 +353,9 @@ wl_full_dataset = pd.DataFrame(output_table,
                                         'Waitlist Size', 'Waitlist Additions',
                                         'Attendances', 'Past/Future'])
 
+#wl_full_dataset['Specialty'] = wl_full_dataset['Specialty'].str.replace(' ', '_').str.replace('&', '').str.replace('-', '')
+specialty_lookup = (wl_full_dataset[['Specialty', 'Clinic Code']].drop_duplicates()
+                    .groupby('Specialty')['Clinic Code'].apply(list).to_dict())
 
 ################################################################################
                              #####Write to Excel#####
@@ -314,7 +368,7 @@ cols = [i for i in wl_tabletemplate.columns if (i != 'Week End' and i != 'Past/F
 wl_tabletemplate[cols] = np.nan
 
 ######Initial Set Up
-writer = pd.ExcelWriter('Caner WL Forecast TEST.xlsx', engine='xlsxwriter')
+writer = pd.ExcelWriter(f'Caner WL Forecast TEST {datetime.today().strftime('%Y-%m-%d')}.xlsx', engine='xlsxwriter')
 workbook = writer.book
 
 dash_ws = workbook.add_worksheet('Dash')
@@ -325,6 +379,27 @@ writer.sheets['Full Data'] = fulldata_ws
 
 lookup_ws = workbook.add_worksheet('Look Up')
 writer.sheets['Look Up'] = lookup_ws
+
+######Full Data Set
+wl_full_dataset.to_excel(writer, sheet_name='Full Data', index=False)
+
+######Lookup sheet
+wl_full_dataset['Specialty'].drop_duplicates().to_excel(writer, sheet_name='Look Up', index=False)
+#test.to_excel(writer, sheet_name='Look Up', index=False, startcol=3)
+#n_rows = test.shape[0]
+#wl_full_dataset['Clinic Code'].drop_duplicates().to_excel(writer, sheet_name='Look Up', index=False, startcol=2)
+
+#To create named groups within each specialty code, you need to write each one as a column
+col = 2
+for specialty, clinic_codes in specialty_lookup.items():
+    #Write in specialty and clinic codes as a column
+    for row, item in enumerate(clinic_codes):
+        lookup_ws.write(row, col, item)
+    #Create a named range for each specialties column.  Remove unaccepted charecters
+    range_name = specialty.replace(' ', '_').replace('&', '').replace('-', '')
+    range_formula = f"='Look Up'!${chr(65+col)}$1:${chr(65+col)}${len(clinic_codes)}"
+    workbook.define_name(range_name, range_formula)
+    col += 1
 
 ######Formats
 #White background
@@ -364,9 +439,16 @@ dash_ws.set_row(7, None, None, {'hidden': True})#hide lookup value row
 #selection column
 no_spec = wl_full_dataset['Specialty'].nunique() + 1
 no_cc = wl_full_dataset['Clinic Code'].nunique() + 1
+
 dash_ws.data_validation('D3', {'validate':'list', 'source':f"'Look Up'!A2:A{no_spec}"})
+
+#dash_ws.data_validation('D4', {'validate':'list', 'source':f"'Look Up'!C2:C{no_cc}"})
+#dash_ws.data_validation('D4', {'validate' : 'list', 'source': f"=INDEX('Look Up'!$D$1:$E${n_rows}, 0, MATCH(D3, 'Look Up'!$D$1:$E${n_rows}, 0))"})
+
+#To get dynamic CC drop down, lookup the name of the selected specialty code (with unaccepted charecters removed).
+dash_ws.data_validation('D4', {'validate':'list', 'source':f'=INDIRECT(SUBSTITUTE(SUBSTITUTE(SUBSTITUTE(D3," ",""),"-",""),"&",""))'})
+
 dash_ws.merge_range('D3:E3', 'All', filter_format2)
-dash_ws.data_validation('D4', {'validate':'list', 'source':f"'Look Up'!C2:C{no_cc}"})
 dash_ws.merge_range('D4:E4', 'All', filter_format2)
 dash_ws.data_validation('D5', {'validate':'list', 'source':wl_full_dataset['Priority'].drop_duplicates().tolist()})
 dash_ws.merge_range('D5:E5', 'All', filter_format2)
@@ -443,12 +525,6 @@ att_add_chart.set_chartarea({'border': {'none': True}})
 dash_ws.insert_chart('G16', att_add_chart, {'x_scale': 2.8, 'y_scale': 1.15})
 
 ######Full Data Set
-wl_full_dataset.to_excel(writer, sheet_name='Full Data', index=False)
-
-######Lookup sheet
-wl_full_dataset['Specialty'].drop_duplicates().to_excel(writer, sheet_name='Look Up', index=False)
-wl_full_dataset['Clinic Code'].drop_duplicates().to_excel(writer, sheet_name='Look Up', index=False, startcol=2)
-
 writer.close()
 
 
