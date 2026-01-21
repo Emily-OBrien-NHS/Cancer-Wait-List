@@ -368,7 +368,7 @@ cols = [i for i in wl_tabletemplate.columns if (i != 'Week End' and i != 'Past/F
 wl_tabletemplate[cols] = np.nan
 
 ######Initial Set Up
-writer = pd.ExcelWriter(f'Caner WL Forecast TEST {datetime.today().strftime('%Y-%m-%d')}.xlsx', engine='xlsxwriter')
+writer = pd.ExcelWriter(f'Outputs/Caner WL Forecast TEST {datetime.today().strftime('%Y-%m-%d')}.xlsx', engine='xlsxwriter')
 workbook = writer.book
 
 dash_ws = workbook.add_worksheet('Dash')
@@ -397,7 +397,24 @@ for specialty, clinic_codes in specialty_lookup.items():
         lookup_ws.write(row, col, item)
     #Create a named range for each specialties column.  Remove unaccepted charecters
     range_name = specialty.replace(' ', '_').replace('&', '').replace('-', '')
-    range_formula = f"='Look Up'!${chr(65+col)}$1:${chr(65+col)}${len(clinic_codes)}"
+
+    #Code to get the correct excel column, can I do better?
+    #if col <= 25:
+    #    column = chr(65+col)
+    #elif col <= 51:
+    #    column = 'A'+chr(65+col-26)
+    #elif col <= 77:
+    #    column = 'B'+chr(65+col-26-26)
+    #else:
+    #    column = 'C'+chr(65+col-26-26-26)
+    column = ''
+    col1 = col + 1
+    while col1 > 0:
+        col1 -= 1  # Adjust because Excel uses 1-26, not 0-25
+        column = chr(65 + (col1 % 26)) + column
+        col1 //= 26
+
+    range_formula = f"='Look Up'!${column}$1:${column}${len(clinic_codes)}"
     workbook.define_name(range_name, range_formula)
     col += 1
 
@@ -446,7 +463,7 @@ dash_ws.data_validation('D3', {'validate':'list', 'source':f"'Look Up'!A2:A{no_s
 #dash_ws.data_validation('D4', {'validate' : 'list', 'source': f"=INDEX('Look Up'!$D$1:$E${n_rows}, 0, MATCH(D3, 'Look Up'!$D$1:$E${n_rows}, 0))"})
 
 #To get dynamic CC drop down, lookup the name of the selected specialty code (with unaccepted charecters removed).
-dash_ws.data_validation('D4', {'validate':'list', 'source':f'=INDIRECT(SUBSTITUTE(SUBSTITUTE(SUBSTITUTE(D3," ",""),"-",""),"&",""))'})
+dash_ws.data_validation('D4', {'validate':'list', 'source':f'=INDIRECT(SUBSTITUTE(SUBSTITUTE(SUBSTITUTE(D3," ","_"),"-",""),"&",""))'})
 
 dash_ws.merge_range('D3:E3', 'All', filter_format2)
 dash_ws.merge_range('D4:E4', 'All', filter_format2)
@@ -530,4 +547,3 @@ writer.close()
 
 t1=time.time()
 print(f'Done in {(t1-t0)/60}')
-
