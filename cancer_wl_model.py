@@ -321,7 +321,7 @@ for cc in start['Clinic Code'].drop_duplicates().values.tolist():
             except:
                 slots_inc_undef = 0
             #Work out the predicted waitlist size for this timestep
-            new_WL_inc_undef = WL_inc_undef + adds - slots_inc_undef
+            new_WL_inc_undef = max(WL_inc_undef + adds - slots_inc_undef, 0)
             fut_WL_inc_undef.append(new_WL_inc_undef)
             WL_inc_undef = new_WL_inc_undef
             #record results
@@ -336,7 +336,7 @@ for cc in start['Clinic Code'].drop_duplicates().values.tolist():
             except:
                 slots_exc_undef = 0
             #Work out the predicted waitlist size for this timestep
-            new_WL_exc_undef = WL_exc_undef + adds - slots_exc_undef
+            new_WL_exc_undef = max(WL_exc_undef + adds - slots_exc_undef, 0)
             fut_WL_exc_undef.append(new_WL_exc_undef)
             WL_exc_undef = new_WL_exc_undef
             #record results
@@ -368,7 +368,7 @@ cols = [i for i in wl_tabletemplate.columns if (i != 'Week End' and i != 'Past/F
 wl_tabletemplate[cols] = np.nan
 
 ######Initial Set Up
-writer = pd.ExcelWriter(f'Outputs/Caner WL Forecast TEST {datetime.today().strftime('%Y-%m-%d')}.xlsx', engine='xlsxwriter')
+writer = pd.ExcelWriter(f'Outputs/Caner WL Forecast {datetime.today().strftime('%Y-%m-%d')}.xlsx', engine='xlsxwriter')
 workbook = writer.book
 
 dash_ws = workbook.add_worksheet('Dash')
@@ -547,3 +547,4 @@ writer.close()
 
 t1=time.time()
 print(f'Done in {(t1-t0)/60}')
+
