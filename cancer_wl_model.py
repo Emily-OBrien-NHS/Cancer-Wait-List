@@ -55,15 +55,21 @@ att_sql = """WITH ATT AS (
 		    WHEN [prity_perf] = 'TC' THEN 'Time Critical' END AS [Priority]
 			,CASE WHEN [visit_desc] = 'FU' THEN 'Follow Up' else [visit_desc] END AS [New/Follow Up]   			 
 			,[Attended] AS [Attendances]
+            ,[rundate]
 			FROM [infodb].[PowerBI].[RL_PBI0043_Activity]
 			WHERE rundate = (select MAX(rundate) from [infodb].[PowerBI].[RL_PBI0043_Activity])
                   AND [Session Week] < GETDATE())
 
-            SELECT [Week End], [Specialty Code], [Clinic Code], [Priority], [New/Follow Up],
+            SELECT [rundate], [Week End], [Specialty Code], [Clinic Code], [Priority], [New/Follow Up],
                    SUM([Attendances]) AS [Attendances]
             FROM ATT
-            GROUP BY [Week End], [Specialty Code], [Clinic Code], [Priority], [New/Follow Up]"""
+            GROUP BY [rundate], [Week End], [Specialty Code], [Clinic Code], [Priority], [New/Follow Up]"""
 att = pd.read_sql(att_sql, sdmart_engine)
+
+print(f'Attendances run date: {att['rundate'].drop_duplicates()}')
+print('Total attendaces:')
+print(att.groupby('Week End')['Attendances'].sum())
+print('------------------------------------------')
 
 ####Historical Waitlist Size
 wl_sql = """WITH WL AS (
@@ -81,17 +87,23 @@ wl_sql = """WITH WL AS (
 		    WHEN [Priority] = 'TC' THEN 'Time Critical' END AS [Priority]
 			,[New/Follow Up]
 			,[Waitlist Size]
+            ,[rundate]
 			FROM [infodb].[PowerBI].[RL_PBI0043_WL_Past]
 			WHERE  [Session Week] <  GETDATE())
 
-            SELECT [Week End], [Specialty Code], [Clinic Code], [Priority], [New/Follow Up],
+            SELECT [rundate], [Week End], [Specialty Code], [Clinic Code], [Priority], [New/Follow Up],
                 SUM([Waitlist Size]) AS [Waitlist Size]
             FROM WL
-            GROUP BY [Week End], [Specialty Code], [Clinic Code], [Priority], [New/Follow Up]"""
+            GROUP BY [rundate], [Week End], [Specialty Code], [Clinic Code], [Priority], [New/Follow Up]"""
 
 wl = pd.read_sql(wl_sql, sdmart_engine)
 wl['Week End'] = wl['Week End'].astype('datetime64[ns]')
 wl['Specialty Code'] = wl['Specialty Code'].str.strip()
+
+print(f'Waitlis run date: {wl['rundate'].drop_duplicates()}')
+print('Waitlist totals:')
+print(wl.groupby('Week End')['Waitlist Size'].sum())
+
 
 ####Specialty Lookup
 pfmgt_spec_sql = """SELECT spcd AS [Specialty Code],
