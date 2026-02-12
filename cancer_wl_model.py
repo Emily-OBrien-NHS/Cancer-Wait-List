@@ -37,7 +37,11 @@ add_sql = """WITH ADDNS AS (
                 SUM([Waitlist Additions]) AS [Waitlist Additions]
             FROM ADDNS
             GROUP BY [Week End], [Specialty Code], [Clinic Code], [Priority], [New/Follow Up]"""
+
 add = pd.read_sql(add_sql, sdmart_engine)
+print('Waitlist Additions:')
+print(add.groupby('Week End')['Waitlist Additions'].sum())
+print('------------------------------------------')
 
 ####Waitlist Attendances
 att_sql = """WITH ATT AS (
@@ -66,8 +70,8 @@ att_sql = """WITH ATT AS (
             GROUP BY [rundate], [Week End], [Specialty Code], [Clinic Code], [Priority], [New/Follow Up]"""
 att = pd.read_sql(att_sql, sdmart_engine)
 
-print(f'Attendances run date: {att['rundate'].drop_duplicates()}')
-print('Total attendaces:')
+print(f'Attendances run date: {att['rundate'].drop_duplicates().iloc[0]}')
+print('Total Attendances:')
 print(att.groupby('Week End')['Attendances'].sum())
 print('------------------------------------------')
 
@@ -100,10 +104,10 @@ wl = pd.read_sql(wl_sql, sdmart_engine)
 wl['Week End'] = wl['Week End'].astype('datetime64[ns]')
 wl['Specialty Code'] = wl['Specialty Code'].str.strip()
 
-print(f'Waitlis run date: {wl['rundate'].drop_duplicates()}')
-print('Waitlist totals:')
+print(f'Waitlist run date: {wl['rundate'].drop_duplicates().iloc[0]}')
+print('Waitlist Totals:')
 print(wl.groupby('Week End')['Waitlist Size'].sum())
-
+print('------------------------------------------')
 
 ####Specialty Lookup
 pfmgt_spec_sql = """SELECT spcd AS [Specialty Code],
@@ -151,10 +155,10 @@ LEFT JOIN PiMSMarts.dbo.[MasterClinicList] AS mastc
 WHERE
 --Filter to slots over next 3 weeks
 CONVERT(DATE, util.[session_start_dttm])
-    > DATEADD(DAY, 7 - (@@DATEFIRST-1) - DATEPART(WEEKDAY, CONVERT(DATE, GETDATE())),
+    > DATEADD(DAY, (@@DATEFIRST-1) - DATEPART(WEEKDAY, CONVERT(DATE, GETDATE())),
               CONVERT(DATE, GETDATE())) --After this sunday
 AND CONVERT(DATE, util.[session_start_dttm])
-    <= DATEADD(WEEK, 3, DATEADD(DAY, 7 - (@@DATEFIRST-1) - DATEPART(WEEKDAY, CONVERT(DATE, GETDATE())),
+    <= DATEADD(WEEK, 2, DATEADD(DAY, 7 - (@@DATEFIRST-1) - DATEPART(WEEKDAY, CONVERT(DATE, GETDATE())),
                CONVERT(DATE, GETDATE()))) --Before sunday in 3 weeks (check time)
 
 --(YEAR(util.[session_start_dttm]) * 100 + DATEPART(WEEK, util.[session_start_dttm])) 
@@ -175,6 +179,10 @@ GROUP BY DATEADD(DAY, 7 - (@@DATEFIRST-1) - DATEPART(WEEKDAY, infodb.dbo.fn_remo
 ORDER BY [Week End]
 """
 cancer_slots = pd.read_sql_query(cancer_slots_sql, sdmart_engine)
+
+print('Future Slots:')
+print(cancer_slots.groupby('Week End')['Slots'].sum())
+print('------------------------------------------')
 
 #Initial fixing of formatting
 cancer_slots['Week End'] = cancer_slots['Week End'].astype(str)
