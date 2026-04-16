@@ -21,3 +21,7 @@
 
 #Any word document
 *.docx
+
+#emails text file
+emails.txt
+email signature.txt

@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from sqlalchemy import create_engine
 import time
+import win32com.client as win32
 import xlsxwriter
 from datetime import datetime
 import os
@@ -388,7 +389,8 @@ cols = [i for i in wl_tabletemplate.columns if (i != 'Week End' and i != 'Past/F
 wl_tabletemplate[cols] = np.nan
 
 ######Initial Set Up
-writer = pd.ExcelWriter(f'Outputs/Caner WL Forecast {datetime.today().strftime('%Y-%m-%d')}.xlsx', engine='xlsxwriter')
+file_path = f'Outputs/Caner WL Forecast {datetime.today().strftime('%Y-%m-%d')}.xlsx'
+writer = pd.ExcelWriter(file_path, engine='xlsxwriter')
 workbook = writer.book
 
 dash_ws = workbook.add_worksheet('Dash')
@@ -564,7 +566,27 @@ dash_ws.insert_chart('G16', att_add_chart, {'x_scale': 2.8, 'y_scale': 1.15})
 ######Full Data Set
 writer.close()
 
-
 t1=time.time()
 print(f'Done in {(t1-t0)/60}')
 
+
+
+
+################################################################################
+                                #Send Email#
+################################################################################
+#send email with latest flagged output attatched    
+# Create Outlook application object and mail item
+outlook = win32.Dispatch('outlook.application')
+mail = outlook.CreateItem(0)    
+# Set email properties
+mail.To = open(r'G:/PerfInfo/Performance Management/OR Team/Emily Projects/General Analysis/Cancer Wait List Analysis/emails.txt', 'r').read()
+mail.Subject = 'Health Inequalities'
+mail.HTMLBody = f"""<p>Hi Callum,</p>
+<p>Please see attatched this week's Cancer WL forecast</p>
+<p>Emily</p>""" + open('G:/PerfInfo/Performance Management/OR Team/Emily Projects/General Analysis/Cancer Wait List Analysis/email signature.txt', 'r').read()
+#attatch file
+mail.Attachments.Add(f'G:/PerfInfo/Performance Management/OR Team/Emily Projects/General Analysis/Cancer Wait List Analysis/{file_path}')
+# Send email
+mail.Send()
+print(f"Email sent successfully")
