@@ -581,7 +581,7 @@ outlook = win32.Dispatch('outlook.application')
 mail = outlook.CreateItem(0)    
 # Set email properties
 mail.To = open(r'G:/PerfInfo/Performance Management/OR Team/Emily Projects/General Analysis/Cancer Wait List Analysis/emails.txt', 'r').read()
-mail.Subject = 'Health Inequalities'
+mail.Subject = 'Cancer WL Forecast'
 mail.HTMLBody = f"""<p>Hi Callum,</p>
 <p>Please see attatched this week's Cancer WL forecast</p>
 <p>Emily</p>""" + open('G:/PerfInfo/Performance Management/OR Team/Emily Projects/General Analysis/Cancer Wait List Analysis/email signature.txt', 'r').read()
